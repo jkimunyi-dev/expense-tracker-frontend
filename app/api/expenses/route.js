@@ -1,46 +1,44 @@
 import { NextResponse } from 'next/server';
 
-// This is a temporary in-memory storage. In a real app, you'd use a database
-let expenses = [];
-let nextId = 1;
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
-export async function GET() {
-  return NextResponse.json(expenses);
+// Proxy requests to the Go backend
+export async function GET(request) {
+  const response = await fetch(`${API_BASE_URL}/api/expenses`);
+  const data = await response.json();
+  return NextResponse.json(data);
 }
 
 export async function POST(request) {
   const expense = await request.json();
-  const newExpense = {
-    id: nextId++,
-    ...expense,
-    amount: Number(expense.amount),
-    date: new Date(expense.date).toISOString(),
-  };
-  expenses.push(newExpense);
-  return NextResponse.json(newExpense, { status: 201 });
+  const response = await fetch(`${API_BASE_URL}/api/expenses`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(expense),
+  });
+  const data = await response.json();
+  return NextResponse.json(data, { status: response.status });
 }
 
 export async function PUT(request) {
   const expense = await request.json();
-  const index = expenses.findIndex(e => e.id === expense.id);
-  if (index === -1) {
-    return NextResponse.json({ error: 'Expense not found' }, { status: 404 });
-  }
-  expenses[index] = {
-    ...expenses[index],
-    ...expense,
-    amount: Number(expense.amount),
-    date: new Date(expense.date).toISOString(),
-  };
-  return NextResponse.json(expenses[index]);
+  const response = await fetch(`${API_BASE_URL}/api/expenses/${expense.id}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(expense),
+  });
+  const data = await response.json();
+  return NextResponse.json(data, { status: response.status });
 }
 
 export async function DELETE(request, { params }) {
-  const { id } = params;
-  const index = expenses.findIndex(e => e.id === Number(id));
-  if (index === -1) {
-    return NextResponse.json({ error: 'Expense not found' }, { status: 404 });
-  }
-  expenses = expenses.filter(e => e.id !== Number(id));
-  return NextResponse.json({ success: true });
+  const response = await fetch(`${API_BASE_URL}/api/expenses/${params.id}`, {
+    method: 'DELETE',
+  });
+  const data = await response.json();
+  return NextResponse.json(data, { status: response.status });
 }

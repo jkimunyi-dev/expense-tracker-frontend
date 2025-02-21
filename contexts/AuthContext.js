@@ -1,6 +1,7 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect } from 'react';
+import { api, ApiError } from '@/utils/api';
 
 const AuthContext = createContext({});
 
@@ -9,7 +10,6 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check if user is logged in on mount
     checkAuth();
   }, []);
 
@@ -17,7 +17,15 @@ export function AuthProvider({ children }) {
     try {
       const token = localStorage.getItem('token');
       if (token) {
-        setUser({ token }); // You can expand this with user details if needed
+        // Verify token is valid by making a test request
+        try {
+          await api.expenses.getAll();
+          setUser({ token });
+        } catch (error) {
+          if (error.status === 401) {
+            localStorage.removeItem('token');
+          }
+        }
       }
     } finally {
       setLoading(false);
@@ -26,23 +34,21 @@ export function AuthProvider({ children }) {
 
   const login = async (email, password) => {
     try {
-      const response = await fetch('http://54.226.1.246:3001/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Login failed');
+      const response = await api.auth.login({ email, password });
+      const { token } = response;
+      
+      if (!token) {
+        throw new Error('No token received');
       }
 
-      const data = await response.json();
-      localStorage.setItem('token', data.token);
-      setUser({ token: data.token });
+      localStorage.setItem('token', token);
+      setUser({ token });
       return true;
     } catch (error) {
-      console.error('Login error:', error);
-      throw error;
+      if (error instanceof ApiError) {
+        throw new Error(error.message);
+      }
+      throw new Error('Login failed');
     }
   };
 
@@ -52,7 +58,13 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      loading, 
+      login, 
+      logout,
+      isAuthenticated: !!user 
+    }}>
       {children}
     </AuthContext.Provider>
   );

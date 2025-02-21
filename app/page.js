@@ -3,44 +3,40 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { api } from '@/utils/api';
 import ExpenseForm from '../components/ExpenseForm';
 import ExpenseList from '../components/ExpenseList';
 import ExpenseSummary from '../components/ExpenseSummary';
-
-const API_BASE_URL = 'http://54.226.1.246:3001';
 
 export default function Home() {
   const [expenses, setExpenses] = useState([]);
   const [currentExpense, setCurrentExpense] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  const { user, loading, logout } = useAuth();
+  const { user, loading, logout, isAuthenticated } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (!loading && !isAuthenticated) {
       router.push('/login');
-    } else if (user) {
+    } else if (isAuthenticated) {
       fetchExpenses();
     }
-  }, [user, loading]);
+  }, [isAuthenticated, loading]);
 
   const fetchExpenses = async () => {
     try {
       setIsLoading(true);
       setError(null);
-      const response = await fetch(`${API_BASE_URL}/api/expenses`, {
-        headers: {
-          'Authorization': `Bearer ${user.token}`
-        }
-      });
-      if (!response.ok) throw new Error('Failed to fetch expenses');
-      const data = await response.json();
+      const data = await api.expenses.getAll();
       setExpenses(data || []);
     } catch (error) {
       console.error('Error fetching expenses:', error);
       setError(error.message);
-      setExpenses([]);
+      if (error.status === 401) {
+        logout();
+        router.push('/login');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -48,53 +44,40 @@ export default function Home() {
 
   const handleCreateOrUpdate = async (expense) => {
     try {
-      const url = currentExpense 
-        ? `${API_BASE_URL}/api/expenses/${currentExpense.id}` 
-        : `${API_BASE_URL}/api/expenses`;
-      
-      const method = currentExpense ? 'PUT' : 'POST';
-      
-      const formattedExpense = {
-        ...expense,
-        date: new Date(expense.date).toISOString()
-      };
-
-      const response = await fetch(url, {
-        method,
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${user.token}`
-        },
-        body: JSON.stringify(formattedExpense),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to save expense');
+      if (currentExpense) {
+        await api.expenses.update(currentExpense.id, {
+          ...expense,
+          date: new Date(expense.date).toISOString()
+        });
+      } else {
+        await api.expenses.create({
+          ...expense,
+          date: new Date(expense.date).toISOString()
+        });
       }
-
-      fetchExpenses();
+      await fetchExpenses();
       setCurrentExpense(null);
     } catch (error) {
       console.error('Error saving expense:', error);
+      setError(error.message);
+      if (error.status === 401) {
+        logout();
+        router.push('/login');
+      }
     }
   };
 
   const handleDelete = async (id) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/expenses/${id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${user.token}`
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete expense');
-      }
-
-      fetchExpenses();
+      await api.expenses.delete(id);
+      await fetchExpenses();
     } catch (error) {
       console.error('Error deleting expense:', error);
+      setError(error.message);
+      if (error.status === 401) {
+        logout();
+        router.push('/login');
+      }
     }
   };
 
@@ -104,11 +87,15 @@ export default function Home() {
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+      </div>
+    );
   }
 
-  if (!user) {
-    return null; // Will redirect to login
+  if (!isAuthenticated) {
+    return null;
   }
 
   return (
@@ -124,8 +111,17 @@ export default function Home() {
       </div>
       
       {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-          Error: {error}
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4 relative">
+          <span className="block sm:inline">{error}</span>
+          <span 
+            className="absolute top-0 bottom-0 right-0 px-4 py-3"
+            onClick={() => setError(null)}
+          >
+            <svg className="fill-current h-6 w-6 text-red-500" role="button" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+              <title>Close</title>
+              <path d="M14.348 14.849a1.2 1.2 0 0 1-1.697 0L10 11.819l-2.651 3.029a1.2 1.2 0 1 1-1.697-1.697l2.758-3.15-2.759-3.152a1.2 1.2 0 1 1 1.697-1.697L10 8.183l2.651-3.031a1.2 1.2 0 1 1 1.697 1.697l-2.758 3.152 2.758 3.15a1.2 1.2 0 0 1 0 1.698z"/>
+            </svg>
+          </span>
         </div>
       )}
       <ExpenseForm 
@@ -134,15 +130,19 @@ export default function Home() {
         onCancel={() => setCurrentExpense(null)}
       />
       {isLoading ? (
-        <div className="text-center py-4">Loading expenses...</div>
+        <div className="flex justify-center py-4">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+        </div>
       ) : (
-        <ExpenseList 
-          expenses={expenses} 
-          onEdit={setCurrentExpense} 
-          onDelete={handleDelete} 
-        />
+        <>
+          <ExpenseList 
+            expenses={expenses} 
+            onEdit={setCurrentExpense} 
+            onDelete={handleDelete} 
+          />
+          <ExpenseSummary expenses={expenses} />
+        </>
       )}
-      <ExpenseSummary expenses={expenses} />
     </div>
   );
 }

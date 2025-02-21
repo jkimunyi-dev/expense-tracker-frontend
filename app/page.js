@@ -5,6 +5,9 @@ import ExpenseForm from '../components/ExpenseForm';
 import ExpenseList from '../components/ExpenseList';
 import ExpenseSummary from '../components/ExpenseSummary';
 
+// Add the API base URL
+const API_BASE_URL = 'http://54.226.1.246:3001';
+
 export default function Home() {
   const [expenses, setExpenses] = useState([]);
   const [currentExpense, setCurrentExpense] = useState(null);
@@ -15,7 +18,7 @@ export default function Home() {
 
   const fetchExpenses = async () => {
     try {
-      const response = await fetch('/api/expenses');
+      const response = await fetch(`${API_BASE_URL}/api/expenses`);
       if (!response.ok) throw new Error('Failed to fetch expenses');
       const data = await response.json();
       setExpenses(data);
@@ -27,8 +30,8 @@ export default function Home() {
   const handleCreateOrUpdate = async (expense) => {
     try {
       const url = currentExpense 
-        ? `/api/expenses/${currentExpense.id}` 
-        : `/api/expenses`;
+        ? `${API_BASE_URL}/api/expenses/${currentExpense.id}` 
+        : `${API_BASE_URL}/api/expenses`;
       
       const method = currentExpense ? 'PUT' : 'POST';
       
@@ -56,7 +59,7 @@ export default function Home() {
 
   const handleDelete = async (id) => {
     try {
-      const response = await fetch(`/api/expenses/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/expenses/${id}`, {
         method: 'DELETE',
       });
 

@@ -1,29 +1,20 @@
 "use client"
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/contexts/AuthContext';
-import { api } from '@/utils/api';
+import { api } from '@/config/api';
 import ExpenseForm from '../components/ExpenseForm';
 import ExpenseList from '../components/ExpenseList';
 import ExpenseSummary from '../components/ExpenseSummary';
-import Link from 'next/link';
 
 export default function Home() {
   const [expenses, setExpenses] = useState([]);
   const [currentExpense, setCurrentExpense] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  const { user, loading, logout, isAuthenticated } = useAuth();
-  const router = useRouter();
 
   useEffect(() => {
-    if (!loading && !isAuthenticated) {
-      router.push('/login');
-    } else if (isAuthenticated) {
-      fetchExpenses();
-    }
-  }, [isAuthenticated, loading]);
+    fetchExpenses();
+  }, []);
 
   const fetchExpenses = async () => {
     try {
@@ -34,10 +25,6 @@ export default function Home() {
     } catch (error) {
       console.error('Error fetching expenses:', error);
       setError(error.message);
-      if (error.status === 401) {
-        logout();
-        router.push('/login');
-      }
     } finally {
       setIsLoading(false);
     }
@@ -61,10 +48,6 @@ export default function Home() {
     } catch (error) {
       console.error('Error saving expense:', error);
       setError(error.message);
-      if (error.status === 401) {
-        logout();
-        router.push('/login');
-      }
     }
   };
 
@@ -75,19 +58,10 @@ export default function Home() {
     } catch (error) {
       console.error('Error deleting expense:', error);
       setError(error.message);
-      if (error.status === 401) {
-        logout();
-        router.push('/login');
-      }
     }
   };
 
-  const handleLogout = () => {
-    logout();
-    router.push('/login');
-  };
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
@@ -95,20 +69,10 @@ export default function Home() {
     );
   }
 
-  if (!isAuthenticated) {
-    return null;
-  }
-
   return (
     <div className="container mx-auto p-4">
       <div className="flex justify-between items-center mb-4">
         <h1 className="text-2xl font-bold">Expense Tracker</h1>
-        <button
-          onClick={handleLogout}
-          className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
-        >
-          Logout
-        </button>
       </div>
       
       {error && (
@@ -125,25 +89,20 @@ export default function Home() {
           </span>
         </div>
       )}
+      
       <ExpenseForm 
         expense={currentExpense} 
         onSubmit={handleCreateOrUpdate} 
         onCancel={() => setCurrentExpense(null)}
       />
-      {isLoading ? (
-        <div className="flex justify-center py-4">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-        </div>
-      ) : (
-        <>
-          <ExpenseList 
-            expenses={expenses} 
-            onEdit={setCurrentExpense} 
-            onDelete={handleDelete} 
-          />
-          <ExpenseSummary expenses={expenses} />
-        </>
-      )}
+      
+      <ExpenseList 
+        expenses={expenses} 
+        onEdit={setCurrentExpense} 
+        onDelete={handleDelete} 
+      />
+      
+      <ExpenseSummary expenses={expenses} />
     </div>
   );
 }

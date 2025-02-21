@@ -1,14 +1,10 @@
-// API configuration
 export const API_CONFIG = {
   BASE_URL: process.env.NEXT_PUBLIC_API_URL || 'http://54.226.1.246:3001',
   ENDPOINTS: {
-    SIGNUP: '/api/auth/signup',
-    LOGIN: '/api/auth/login',
     EXPENSES: '/api/expenses',
   }
 };
 
-// API utility functions
 export const api = {
   fetch: async (endpoint, options = {}) => {
     const response = await fetch(`${API_CONFIG.BASE_URL}${endpoint}`, {
@@ -27,20 +23,6 @@ export const api = {
     return response.json();
   },
 
-  // Auth endpoints
-  auth: {
-    signup: (userData) => api.fetch(API_CONFIG.ENDPOINTS.SIGNUP, {
-      method: 'POST',
-      body: JSON.stringify(userData),
-    }),
-
-    login: (credentials) => api.fetch(API_CONFIG.ENDPOINTS.LOGIN, {
-      method: 'POST',
-      body: JSON.stringify(credentials),
-    }),
-  },
-
-  // Expense endpoints
   expenses: {
     getAll: () => api.fetch(API_CONFIG.ENDPOINTS.EXPENSES),
     

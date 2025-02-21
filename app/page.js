@@ -1,35 +1,46 @@
 "use client"
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
 import ExpenseForm from '../components/ExpenseForm';
 import ExpenseList from '../components/ExpenseList';
 import ExpenseSummary from '../components/ExpenseSummary';
 
-// Add the API base URL
 const API_BASE_URL = 'http://54.226.1.246:3001';
 
 export default function Home() {
-  const [expenses, setExpenses] = useState([]);  // Initialize as empty array
+  const [expenses, setExpenses] = useState([]);
   const [currentExpense, setCurrentExpense] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const { user, loading, logout } = useAuth();
+  const router = useRouter();
 
   useEffect(() => {
-    fetchExpenses();
-  }, []);
+    if (!loading && !user) {
+      router.push('/login');
+    } else if (user) {
+      fetchExpenses();
+    }
+  }, [user, loading]);
 
   const fetchExpenses = async () => {
     try {
       setIsLoading(true);
       setError(null);
-      const response = await fetch(`${API_BASE_URL}/api/expenses`);
+      const response = await fetch(`${API_BASE_URL}/api/expenses`, {
+        headers: {
+          'Authorization': `Bearer ${user.token}`
+        }
+      });
       if (!response.ok) throw new Error('Failed to fetch expenses');
       const data = await response.json();
-      setExpenses(data || []); // Ensure we always set an array
+      setExpenses(data || []);
     } catch (error) {
       console.error('Error fetching expenses:', error);
       setError(error.message);
-      setExpenses([]); // Set empty array on error
+      setExpenses([]);
     } finally {
       setIsLoading(false);
     }
@@ -50,7 +61,10 @@ export default function Home() {
 
       const response = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${user.token}`
+        },
         body: JSON.stringify(formattedExpense),
       });
 
@@ -69,6 +83,9 @@ export default function Home() {
     try {
       const response = await fetch(`${API_BASE_URL}/api/expenses/${id}`, {
         method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${user.token}`
+        }
       });
 
       if (!response.ok) {
@@ -81,9 +98,31 @@ export default function Home() {
     }
   };
 
+  const handleLogout = () => {
+    logout();
+    router.push('/login');
+  };
+
+  if (loading) {
+    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+  }
+
+  if (!user) {
+    return null; // Will redirect to login
+  }
+
   return (
     <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">Expense Tracker</h1>
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-2xl font-bold">Expense Tracker</h1>
+        <button
+          onClick={handleLogout}
+          className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
+        >
+          Logout
+        </button>
+      </div>
+      
       {error && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
           Error: {error}

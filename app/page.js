@@ -7,6 +7,7 @@ import { api } from '@/utils/api';
 import ExpenseForm from '../components/ExpenseForm';
 import ExpenseList from '../components/ExpenseList';
 import ExpenseSummary from '../components/ExpenseSummary';
+import Link from 'next/link';
 
 export default function Home() {
   const [expenses, setExpenses] = useState([]);
